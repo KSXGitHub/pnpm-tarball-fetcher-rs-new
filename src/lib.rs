@@ -34,15 +34,11 @@ pub async fn fetch_tarball(
       "Tarball verification failed",
     ));
   }
-  task::spawn(async move {
-    let decompressed_response = decompress_gzip(&response).unwrap();
-    let parsed: Integrity = integrity.parse().unwrap();
-    let index_location_pb = content_path_from_hex(FileType::Index, parsed.to_hex().1.as_str());
-    let cas_file_map = extract_tarball(index_location_pb.as_path(), decompressed_response).unwrap();
-    Ok(cas_file_map)
-  })
-  .await
-  .unwrap()
+  let decompressed_response = decompress_gzip(&response).unwrap();
+  let parsed: Integrity = integrity.parse().unwrap();
+  let index_location_pb = content_path_from_hex(FileType::Index, parsed.to_hex().1.as_str());
+  let cas_file_map = extract_tarball(index_location_pb.as_path(), decompressed_response).unwrap();
+  Ok(cas_file_map)
 }
 
 pub fn verify_checksum(

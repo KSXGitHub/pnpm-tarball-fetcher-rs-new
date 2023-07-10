@@ -75,7 +75,7 @@ fn calc_hash(data: &bytes::Bytes, algorithm: Algorithm) -> Result<String, Box<dy
       .algorithm(Algorithm::Sha1)
       .chain(data)
       .result();
-    format!("sha1-{}", hash.to_hex().1)
+    hash.to_string()
   } else {
     IntegrityOpts::new()
       .algorithm(Algorithm::Sha512)

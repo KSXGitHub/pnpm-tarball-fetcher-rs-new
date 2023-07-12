@@ -27,28 +27,33 @@ pub async fn fetch_tarball(
   integrity: String,
 ) -> Result<HashMap<String, String>, napi::Error> {
   let response = _fetch_tarball(&url).await.unwrap();
-  let (verified, _checksum) = verify_checksum(&response, &integrity).unwrap();
-  if !verified {
+  if let Err(error) = verify_checksum(&response, &integrity) {
+    let error_message = match error {
+      VerifyChecksumError::Mismatch(_) => "Tarball verification failed".to_string(),
+      VerifyChecksumError::Other(error) => error.to_string(),
+    };
     return Err(napi::Error::new(
       napi::Status::GenericFailure,
-      "Tarball verification failed",
+      error_message,
     ));
   }
-  task::spawn(async move {
-    let decompressed_response = decompress_gzip(&response).unwrap();
-    let parsed: Integrity = integrity.parse().unwrap();
-    let index_location_pb = content_path_from_hex(FileType::Index, parsed.to_hex().1.as_str());
-    let cas_file_map = extract_tarball(index_location_pb.as_path(), decompressed_response).unwrap();
-    Ok(cas_file_map)
-  })
-  .await
-  .unwrap()
+  let decompressed_response = decompress_gzip(&response).unwrap();
+  let parsed: Integrity = integrity.parse().unwrap();
+  let index_location_pb = content_path_from_hex(FileType::Index, parsed.to_hex().1.as_str());
+  let cas_file_map = extract_tarball(index_location_pb.as_path(), decompressed_response).unwrap();
+  Ok(cas_file_map)
+}
+
+#[derive(Debug)]
+pub enum VerifyChecksumError {
+  Mismatch(String),
+  Other(Box<dyn Error>),
 }
 
 pub fn verify_checksum(
   response: &bytes::Bytes,
   expected_checksum: &str,
-) -> Result<(bool, Option<String>), Box<dyn Error>> {
+) -> Result<(), VerifyChecksumError> {
   // begin
   // there are only 2 supported algorithms
   // sha1 and sha512
@@ -60,12 +65,12 @@ pub fn verify_checksum(
     Algorithm::Sha512
   };
 
-  let calculated_checksum = calc_hash(response, algorithm)?;
+  let calculated_checksum = calc_hash(response, algorithm).map_err(VerifyChecksumError::Other)?;
 
   if calculated_checksum == expected_checksum {
-    Ok((true, None))
+    Ok(())
   } else {
-    Ok((false, Some(calculated_checksum)))
+    Err(VerifyChecksumError::Mismatch(calculated_checksum))
   }
 }
 

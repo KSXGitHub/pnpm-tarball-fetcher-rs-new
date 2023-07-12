@@ -12,7 +12,6 @@ use std::{
   sync::OnceLock,
 };
 use tar::Archive;
-use tokio::task;
 
 const STORE_DIR: &str = "pnpm-store";
 
@@ -173,6 +172,7 @@ pub fn extract_tarball(
 }
 
 enum FileType {
+  #[allow(unused)]
   Exec,
   NonExec,
   Index,
